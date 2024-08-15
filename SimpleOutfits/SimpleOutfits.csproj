@@ -18,9 +18,9 @@
         <ProjectReference Include="..\Penumbra\OtterGui\OtterGui.csproj" Private="false"/>
         <ProjectReference Include="..\Penumbra\Penumbra\Penumbra.csproj" Private="false"/>
         <ProjectReference Include="..\Penumbra\Penumbra.Api\Penumbra.Api.csproj" Private="false"/>
-        <ProjectReference Include="..\Penumbra\Penumbra.String\Penumbra.String.csproj" Private="false" />
-        <ProjectReference Include="..\Penumbra\Penumbra.GameData\Penumbra.GameData.csproj" Private="false" />
-        <ProjectReference Include="..\Penumbra\Penumbra.CrashHandler\Penumbra.CrashHandler.csproj" Private="false" />
+        <ProjectReference Include="..\Penumbra\Penumbra.String\Penumbra.String.csproj" Private="false"/>
+        <ProjectReference Include="..\Penumbra\Penumbra.GameData\Penumbra.GameData.csproj" Private="false"/>
+        <ProjectReference Include="..\Penumbra\Penumbra.CrashHandler\Penumbra.CrashHandler.csproj" Private="false"/>
         <ProjectReference Include="..\Glamourer.Api\Glamourer.Api.csproj"/>
         <Reference Include="Dalamud">
             <HintPath>$(DalamudLibPath)Dalamud.dll</HintPath>
@@ -52,7 +52,7 @@
         </Reference>
     </ItemGroup>
     <ItemGroup>
-      <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.0-preview.6.24327.7" PrivateAssets="None" />
-      <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.0-preview.6.24327.7" />
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.0-preview.6.24327.7" PrivateAssets="None"/>
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.0-preview.6.24327.7"/>
     </ItemGroup>
 </Project>

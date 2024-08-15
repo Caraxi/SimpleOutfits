@@ -8,22 +8,27 @@ using Dalamud.Plugin.Services;
 namespace SimpleOutfits.BootstrapPlugin;
 
 public class Plugin : IDalamudPlugin {
-    private readonly IPluginLog pluginLog;
-    private BootstrapLoadContext? loadContext;
-    private IBootstrapPlugin? loadedPlugin;
-    private readonly IDalamudPluginInterface pluginInterface;
+    private readonly IPluginLog _pluginLog;
+    private BootstrapLoadContext? _loadContext;
+    private IBootstrapPlugin? _loadedPlugin;
+    private readonly IDalamudPluginInterface _pluginInterface;
+    private readonly IFramework _framework;
     
-    private IList? installedPluginsList;
+    private IList? _installedPluginsList;
     
+    private IDalamudPlugin? _penumbraPlugin;
+    private object? _penumbraLocalPlugin;
     
-    private IDalamudPlugin? penumbraPlugin;
-    private object? penumbraLocalPlugin;
+    private readonly Dictionary<string, (Assembly assembly, IDalamudPlugin plugin, object localPlugin)?> _monitoredPlugins = new() {
+        ["Penumbra"] = null,
+        ["Glamourer"] = null,
+    };
     
     private bool TryGetLoadedPlugin(string internalName, [NotNullWhen(true)] out IDalamudPlugin? plugin, [NotNullWhen(true)] out object? localPlugin) {
         plugin = null;
         localPlugin = null;
-        if (installedPluginsList == null) {
-            var dalamudAssembly = pluginInterface.GetType().Assembly;
+        if (_installedPluginsList == null) {
+            var dalamudAssembly = _pluginInterface.GetType().Assembly;
             var service1T = dalamudAssembly.GetType("Dalamud.Service`1");
             if (service1T == null) throw new Exception("Failed to get Service<T> Type");
             var pluginManagerT = dalamudAssembly.GetType("Dalamud.Plugin.Internal.PluginManager");
@@ -40,17 +45,17 @@ public class Plugin : IDalamudPlugin {
             var installedPluginsListField = pluginManager.GetType().GetField("installedPluginsList", BindingFlags.NonPublic | BindingFlags.Instance);
             if (installedPluginsListField == null) throw new Exception("Failed to get installedPluginsList field");
         
-            installedPluginsList = (IList?) installedPluginsListField.GetValue(pluginManager);
-            if (installedPluginsList == null) throw new Exception("Failed to get installedPluginsList value");
+            _installedPluginsList = (IList?) installedPluginsListField.GetValue(pluginManager);
+            if (_installedPluginsList == null) throw new Exception("Failed to get installedPluginsList value");
         }
 
         PropertyInfo? internalNameProperty = null;
         
-        foreach (var v in installedPluginsList) {
+        foreach (var v in _installedPluginsList) {
             internalNameProperty ??= v?.GetType().GetProperty("InternalName");
             if (internalNameProperty == null) continue;
             var installedInternalName = internalNameProperty.GetValue(v) as string;
-            if (installedInternalName == internalName) {
+            if (installedInternalName == internalName && v != null) {
                 plugin = v.GetType().GetField("instance", BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(v) as IDalamudPlugin;
                 localPlugin = v;
                 if (plugin != null) return true;
@@ -83,7 +88,6 @@ public class Plugin : IDalamudPlugin {
                 var pv = pi.GetValue(origin);
                 if (pv == null) throw new Exception("Null Value");
                 return GetMember(members[stepIndex], pv, path[1..]);
-                break;
             default:
                 throw new Exception($"Unsupported Member Type: {next.MemberType}");
         }
@@ -125,54 +129,102 @@ public class Plugin : IDalamudPlugin {
     
     
     public Plugin(IDalamudPluginInterface pluginInterface, IPluginLog pluginLog, IFramework framework) {
-        this.pluginInterface = pluginInterface;
-        this.pluginLog = pluginLog;
-        framework.Update += FrameworkOnUpdate;
+        this._pluginInterface = pluginInterface;
+        this._pluginLog = pluginLog;
+        this._framework = framework;
+        
+        stateWatcherCancellationTokenSource = new CancellationTokenSource();
+        stateWatcherTask = Task.Run(StateWatcher, stateWatcherCancellationTokenSource.Token);
+    }
+
+
+
+    private void CheckMonitoredPlugins(out bool changeDetected, out bool allAvailable) {
+        changeDetected = false;
+        foreach (var pluginInternalName in _monitoredPlugins.Keys) {
+            
+            if (TryGetLoadedPlugin(pluginInternalName, out var plugin, out var localPlugin)) {
+
+                if (_monitoredPlugins[pluginInternalName] == null) {
+                    _pluginLog.Info($"Monitored Plugin State Changed: '{pluginInternalName}' is now available.");
+                    _monitoredPlugins[pluginInternalName] = (plugin.GetType().Assembly, plugin, localPlugin);
+                    changeDetected = true;
+                } else if (_monitoredPlugins[pluginInternalName]?.plugin != plugin || _monitoredPlugins[pluginInternalName]?.assembly != plugin.GetType().Assembly || _monitoredPlugins[pluginInternalName]?.localPlugin != localPlugin) {
+                    _pluginLog.Info($"Monitored Plugin State Changed: '{pluginInternalName}' has changed.");
+                    _monitoredPlugins[pluginInternalName] = (plugin.GetType().Assembly, plugin, localPlugin);
+                    changeDetected = true;
+                }
+            } else {
+                if (_monitoredPlugins[pluginInternalName] == null) continue;
+                _pluginLog.Info($"Monitored Plugin State Changed: '{pluginInternalName}' is no longer available.");
+                _monitoredPlugins[pluginInternalName] = null;
+                changeDetected = true;
+            }
+        }
+
+        allAvailable = _monitoredPlugins.Values.All(v => v != null);
+    }
+
+
+
+    private CancellationTokenSource stateWatcherCancellationTokenSource;
+    private Task stateWatcherTask;
+    
+    private async void StateWatcher() {
+        var sw = Stopwatch.StartNew();
+        try {
+            while (!stateWatcherCancellationTokenSource.IsCancellationRequested) {
+                await Task.Delay(50, stateWatcherCancellationTokenSource.Token);
+                if (stateWatcherCancellationTokenSource.IsCancellationRequested) return;
+                sw.Restart();
+                CheckMonitoredPlugins(out var changeDetected, out var allAvailable);
+                if (changeDetected || allAvailable == false) {
+                    RequestReload(allAvailable);
+                }
+            }
+        } catch (Exception ex) {
+            if (ex is TaskCanceledException) return;
+            _pluginLog.Error(ex, "Error in StateWatcher");
+        }
     }
     
-
-    private void FrameworkOnUpdate(IFramework framework) {
-        if (timeSinceUpdate.ElapsedMilliseconds < 1000) return;
-        timeSinceUpdate.Restart();
-
+    private void RequestReload(bool monitoredPluginsAvailable) {
         try {
-            if (loadContext == null) {
-                BootPlugin();
-                return;
-            }
-
-
-            if (loadContext.DetectChanges()) {
-                UnloadPlugin();
-                return;
-            }
-            
+            UnloadPlugin();
         } catch (Exception ex) {
-            pluginLog.Error(ex, "Error in Boostrap Update");
-        }
-        
-    }
-
-    public void BootPlugin() {
-        pluginLog.Debug("Booting SimpleOutfits");
-        if (pluginInterface.AssemblyLocation.Directory == null) throw new Exception("Assembly Location is Invalid");
-        loadContext = new BootstrapLoadContext(pluginLog, "SimpleOutfits", pluginInterface.AssemblyLocation.Directory);
-
-        loadContext.AddHandle("SimpleOutfits.BootstrapPlugin", typeof(Plugin).Assembly);
-        loadContext.AddHandle("Dalamud", typeof(IDalamudPluginInterface).Assembly);
-
-        if (!TryGetLoadedPlugin("Penumbra", out penumbraPlugin, out penumbraLocalPlugin)) {
-            pluginLog.Error("Could Not find Penumbra");
+            _pluginLog.Error(ex, "Error Unloading Plugin");
             return;
         }
 
-        if (!TryGetMemberValue(out var penumbraServiceManager,  penumbraPlugin, "_services")) {
-            pluginLog.Error("Could Not find Penumbra._services");
+        if (monitoredPluginsAvailable) {
+            try {
+                _framework.RunOnTick(BootPlugin, delay: TimeSpan.FromSeconds(1));
+            } catch (Exception ex) {
+                _pluginLog.Error(ex, "Error Loading Plugin");
+            }
+        }
+    }
+
+    public void BootPlugin() {
+        _pluginLog.Debug("Booting SimpleOutfits");
+        if (_pluginInterface.AssemblyLocation.Directory == null) throw new Exception("Assembly Location is Invalid");
+        _loadContext = new BootstrapLoadContext(_pluginLog, "SimpleOutfits", _pluginInterface.AssemblyLocation.Directory);
+
+        _loadContext.AddHandle("SimpleOutfits.BootstrapPlugin", typeof(Plugin).Assembly);
+        _loadContext.AddHandle("Dalamud", typeof(IDalamudPluginInterface).Assembly);
+
+        if (!TryGetLoadedPlugin("Penumbra", out _penumbraPlugin, out _penumbraLocalPlugin)) {
+            _pluginLog.Error("Could Not find Penumbra");
+            return;
+        }
+
+        if (!TryGetMemberValue(out var penumbraServiceManager,  _penumbraPlugin, "_services")) {
+            _pluginLog.Error("Could Not find Penumbra._services");
             return;
         }
 
         if (!TryGetMemberValue<IEnumerable>(out var serviceCollection, penumbraServiceManager, "_collection")) {
-            pluginLog.Error("Could not find Penumbra._services._collection");
+            _pluginLog.Error("Could not find Penumbra._services._collection");
             return;
         }
 
@@ -187,74 +239,76 @@ public class Plugin : IDalamudPlugin {
         var collection = serviceCollection.Cast<object>().ToList();
         
         if (!TryGetServiceType(collection, "Penumbra.GameData.Interop.ObjectManager", out var objectManagerType)) {
-            pluginLog.Error("Could not find Penumbra.GameData.Interop.ObjectManager");
+            _pluginLog.Error("Could not find Penumbra.GameData.Interop.ObjectManager");
             return;
         }
         
         if (!TryGetServiceType(collection, "Penumbra.Api.Api.IPenumbraApi", out var penumbraApiType)) {
-            pluginLog.Error("Could not find Penumbra.Api.Api.IPenumbraApi");
+            _pluginLog.Error("Could not find Penumbra.Api.Api.IPenumbraApi");
             return;
         }
         
-        pluginLog.Warning($"{penumbraApiType.Assembly.GetName().Name}");
+        _pluginLog.Warning($"{penumbraApiType.Assembly.GetName().Name}");
         
         var byteStringType = objectManagerType.Assembly.GetType("Penumbra.GameData.Interop.Actor")?.GetProperty("Utf8Name")?.PropertyType;
 
         if (byteStringType == null) {
-            pluginLog.Error("Could not find Penumbra.GameData.Interop.Actor.Utf8Name");
+            _pluginLog.Error("Could not find Penumbra.GameData.Interop.Actor.Utf8Name");
             return;
         }
 
 
 
         if (abstractions == null) {
-            pluginLog.Error("Could not find Microsoft.Extensions.DependencyInjection.Abstractions");
+            _pluginLog.Error("Could not find Microsoft.Extensions.DependencyInjection.Abstractions");
             return;
         }
         
         
-        loadContext.AddHandle("Microsoft.Extensions.DependencyInjection", serviceCollection.GetType().Assembly);
-        loadContext.AddHandle("Microsoft.Extensions.DependencyInjection.Abstractions", abstractions);
-        loadContext.AddHandle("Penumbra", penumbraPlugin.GetType().Assembly);
-        loadContext.AddHandle("Penumbra.GameData", objectManagerType.Assembly);
-        loadContext.AddHandle("Penumbra.Api", penumbraApiType.Assembly);
-        loadContext.AddHandle("Penumbra.String", byteStringType.Assembly);
-        loadContext.AddHandle("OtterGui", penumbraServiceManager.GetType().Assembly);
+        _loadContext.AddHandle("Microsoft.Extensions.DependencyInjection", serviceCollection.GetType().Assembly);
+        _loadContext.AddHandle("Microsoft.Extensions.DependencyInjection.Abstractions", abstractions);
+        _loadContext.AddHandle("Penumbra", _penumbraPlugin.GetType().Assembly);
+        _loadContext.AddHandle("Penumbra.GameData", objectManagerType.Assembly);
+        _loadContext.AddHandle("Penumbra.Api", penumbraApiType.Assembly);
+        _loadContext.AddHandle("Penumbra.String", byteStringType.Assembly);
+        _loadContext.AddHandle("OtterGui", penumbraServiceManager.GetType().Assembly);
         
-        var loadedAssembly = loadContext.LoadFromFile(Path.Join(pluginInterface.AssemblyLocation.Directory.FullName, "SimpleOutfits.dll"));
+        var loadedAssembly = _loadContext.LoadFromFile(Path.Join(_pluginInterface.AssemblyLocation.Directory.FullName, "SimpleOutfits.dll"));
 
         var t = loadedAssembly.GetTypes().FirstOrDefault(t => t.IsAssignableTo(typeof(IBootstrapPlugin)));
         if (t == null) {
-            pluginLog.Error("Failed to find a IBootstrapPlugin class.");
+            _pluginLog.Error("Failed to find a IBootstrapPlugin class.");
             return;
         }
 
-        var createMethod = pluginInterface.GetType().GetMethod("Create")?.MakeGenericMethod(t);
+        var createMethod = _pluginInterface.GetType().GetMethod("Create")?.MakeGenericMethod(t);
         if (createMethod == null) {
-            pluginLog.Error($"Failed to create DalamudPluginInterface.Create<{t.Name}> method.");
+            _pluginLog.Error($"Failed to create DalamudPluginInterface.Create<{t.Name}> method.");
             return;
         }
-        
-        
 
-        loadedPlugin = createMethod.Invoke(pluginInterface, [ new[] { penumbraPlugin, penumbraServiceManager } ]) as IBootstrapPlugin;
+        _loadedPlugin = createMethod.Invoke(_pluginInterface, [ new[] { _penumbraPlugin, penumbraServiceManager } ]) as IBootstrapPlugin;
     }
 
     public void UnloadPlugin() {
-        pluginLog.Warning("Unloading SimpleOutfits");
-        loadedPlugin?.Dispose();
-        loadContext?.Unload();
-        penumbraPlugin = null;
-        penumbraLocalPlugin = null;
-        loadedPlugin = null;
-        loadContext = null;
+        if (_loadedPlugin != null) {
+            _pluginLog.Warning("Unloading SimpleOutfits");
+            _loadedPlugin?.Dispose();
+        }
+        _loadContext?.Unload();
+        _penumbraPlugin = null;
+        _penumbraLocalPlugin = null;
+        _loadedPlugin = null;
+        _loadContext = null;
     }
     
     public void Dispose() {
+        stateWatcherCancellationTokenSource.Cancel();
+        stateWatcherTask.Wait();
         try {
            UnloadPlugin();
         } catch (Exception ex) {
-            pluginLog.Error(ex, "Error in Dispose of Bootstrapped Plugin");
+            _pluginLog.Error(ex, "Error in Dispose of Bootstrapped Plugin");
         }
     }
 }

@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using Penumbra.GameData.Enums;
 
 namespace SimpleOutfits.Interop.Glamourer;
 
@@ -16,27 +17,25 @@ public class GlamourerEquipment {
     public GlamourerItem Wrists = new();
     public GlamourerItem RFinger = new();
     public GlamourerItem LFinger = new();
-    
+
     public GlamourerVisibility Hat = new();
     public GlamourerVisorState Visor = new();
     public GlamourerVisibility Weapon = new();
-    
-    public IEnumerable<GlamourerItem> Items {
+
+    public IEnumerable<(EquipSlot slot, GlamourerItem)> Items {
         get {
-            yield return Head;
-            yield return Body;
-            yield return Hands;
-            yield return Legs;
-            yield return Feet;
-            yield return Ears;
-            yield return Neck;
-            yield return Wrists;
-            yield return RFinger;
-            yield return LFinger;
-            yield return MainHand;
-            yield return OffHand;
+            yield return (EquipSlot.Head, Head);
+            yield return (EquipSlot.Body, Body);
+            yield return (EquipSlot.Hands, Hands);
+            yield return (EquipSlot.Legs, Legs);
+            yield return (EquipSlot.Feet, Feet);
+            yield return (EquipSlot.Ears, Ears);
+            yield return (EquipSlot.Neck, Neck);
+            yield return (EquipSlot.Wrists, Wrists);
+            yield return (EquipSlot.RFinger, RFinger);
+            yield return (EquipSlot.LFinger, LFinger);
+            yield return (EquipSlot.MainHand, MainHand);
+            yield return (EquipSlot.OffHand, OffHand);
         }
     }
-    
-    
 }

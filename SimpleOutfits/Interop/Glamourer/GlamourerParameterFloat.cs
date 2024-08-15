@@ -7,6 +7,7 @@ public class GlamourerParameterFloat : GlamourerToggleable {
 public class GlamourerParameterPercentage : GlamourerToggleable {
     public float Percentage;
 }
+
 public class GlamourerParameterColor : GlamourerToggleable {
     public float Red;
     public float Green;
