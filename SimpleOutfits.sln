@@ -1,11 +1,11 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimpleOutfits", "SimpleOutfits\SimpleOutfits.csproj", "{13AF081E-3572-4E23-B74E-054D8D3B6FD4}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimpleOutfitsPlugin", "SimpleOutfitsPlugin\SimpleOutfitsPlugin.csproj", "{13AF081E-3572-4E23-B74E-054D8D3B6FD4}"
 	ProjectSection(ProjectDependencies) = postProject
 		{2028F372-423C-40BA-AA04-649C0F249DC7} = {2028F372-423C-40BA-AA04-649C0F249DC7}
 	EndProjectSection
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimpleOutfits.BootstrapPlugin", "SimpleOutfits.BootstrapPlugin\SimpleOutfits.BootstrapPlugin.csproj", "{08C35775-7A96-4BB3-9253-E30A783E5E5A}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimpleOutfits", "SimpleOutfits\SimpleOutfits.csproj", "{08C35775-7A96-4BB3-9253-E30A783E5E5A}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Glamourer.Api", "Glamourer.Api\Glamourer.Api.csproj", "{070BD9C3-1975-4AE0-9B67-C44BCAAE4D98}"
 EndProject
