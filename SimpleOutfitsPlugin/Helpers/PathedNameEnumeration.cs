@@ -31,12 +31,12 @@ public static class PathedNameEnumeration {
         }
     }
 
-    private static readonly char[] separator = ['/', '\\'];
+    private static readonly char[] Separator = ['/', '\\'];
 
     public static IEnumerable<(string, T)> DrawFolderTree<T>(this IReadOnlyDictionary<string, T> self) where T : IPathedName {
         var root = new F<(string, T)>();
         foreach (var s in self) {
-            var p = s.Value.NameWithPath.TrimStart('/', '\\').Split(separator, StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).SkipLast(1);
+            var p = s.Value.NameWithPath.TrimStart('/', '\\').Split(Separator, StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).SkipLast(1);
             var f = root;
             foreach (var a in p) f = f.GetOrCreateSubFolder(a);
 

@@ -13,15 +13,15 @@ public class SavedOutfit(FileInfo file, OutfitManager outfitManager) : IOutfit, 
 
     public FileInfo File => file;
 
-    private Outfit? outfit;
-    private Stopwatch lastAccessed = Stopwatch.StartNew();
+    private Outfit? _outfit;
+    private readonly Stopwatch _lastAccessed = Stopwatch.StartNew();
 
     public Outfit AsOutfit() {
-        if (lastAccessed.ElapsedMilliseconds > 10000) outfit = null;
-        lastAccessed.Restart();
-        if (outfit != null) return outfit;
-        outfitManager.TryLoadSavedOutfit(file, out outfit);
-        return outfit ?? throw new Exception("Failed to load Outfit");
+        if (_lastAccessed.ElapsedMilliseconds > 10000) _outfit = null;
+        _lastAccessed.Restart();
+        if (_outfit != null) return _outfit;
+        outfitManager.TryLoadSavedOutfit(file, out _outfit);
+        return _outfit ?? throw new Exception("Failed to load Outfit");
     }
 
     public static implicit operator Outfit(SavedOutfit a) {

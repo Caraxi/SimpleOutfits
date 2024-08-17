@@ -195,6 +195,8 @@ public class Plugin : IDalamudPlugin {
     }
 
     public void BootPlugin() {
+        _pluginLog.Verbose("*violates your plogons*");
+        
         _pluginLog.Debug("Booting SimpleOutfits");
         if (_pluginInterface.AssemblyLocation.Directory == null) throw new Exception("Assembly Location is Invalid");
         _loadContext = new BootstrapLoadContext(_pluginLog, "SimpleOutfits", _pluginInterface.AssemblyLocation.Directory);
@@ -236,8 +238,6 @@ public class Plugin : IDalamudPlugin {
             _pluginLog.Error("Could not find Penumbra.Api.Api.IPenumbraApi");
             return;
         }
-
-        _pluginLog.Warning($"{penumbraApiType.Assembly.GetName().Name}");
 
         var byteStringType = objectManagerType.Assembly.GetType("Penumbra.GameData.Interop.Actor")?.GetProperty("Utf8Name")?.PropertyType;
 

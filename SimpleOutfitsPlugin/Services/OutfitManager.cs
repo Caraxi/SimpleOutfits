@@ -21,18 +21,18 @@ namespace SimpleOutfitsPlugin.Services;
 public class OutfitManager(ActorManager actorManager, GlamourerHelper glamourerHelper, IClientState clientState, CollectionManager collectionManager, ItemManager itemManager, IDalamudPluginInterface pluginInterface, IPluginLog pluginLog) {
     public DirectoryInfo OutfitDirectory { get; } = new(Path.Join(pluginInterface.GetPluginConfigDirectory(), "Outfits"));
 
-    private ReadOnlyDictionary<string, SavedOutfit>? savedOutfits;
+    private ReadOnlyDictionary<string, SavedOutfit>? _savedOutfits;
 
     public ReadOnlyDictionary<string, SavedOutfit> GetSavedOutfits() {
-        if (savedOutfits != null) return savedOutfits;
+        if (_savedOutfits != null) return _savedOutfits;
         var outfits = new Dictionary<string, SavedOutfit>();
 
         if (OutfitDirectory.Exists)
             foreach (var outfitFile in OutfitDirectory.GetFiles("*.json", SearchOption.AllDirectories))
                 outfits.Add(Path.GetRelativePath(OutfitDirectory.FullName, outfitFile.FullName[..^outfitFile.Extension.Length]), new SavedOutfit(outfitFile, this));
 
-        savedOutfits = new ReadOnlyDictionary<string, SavedOutfit>(outfits);
-        return savedOutfits;
+        _savedOutfits = new ReadOnlyDictionary<string, SavedOutfit>(outfits);
+        return _savedOutfits;
     }
 
     public bool TryGetOutfitForLocalCharacter([NotNullWhen(true)] out IOutfit? outfit) {
@@ -124,7 +124,7 @@ public class OutfitManager(ActorManager actorManager, GlamourerHelper glamourerH
 
             file.Directory?.Create();
             File.WriteAllText(file.FullName, j2);
-            savedOutfits = null;
+            _savedOutfits = null;
             if (GetSavedOutfits().TryGetValue(name.Trim(), out savedOutfit)) return true;
 
             errorMessage = "Failed to save outfit - Unknown Error";

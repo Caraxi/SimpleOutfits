@@ -155,9 +155,7 @@ public readonly record struct MaterialValueIndex(MaterialValueIndex.DrawObjectTy
         return result;
     }
 
-    private MaterialValueIndex(uint key) : this((DrawObjectType)(key >> 24), (byte)(key >> 16), (byte)(key >> 8), (byte)key) {
-        Plugin.Log.Debug($"Converting {key:0000000000}");
-    }
+    private MaterialValueIndex(uint key) : this((DrawObjectType)(key >> 24), (byte)(key >> 16), (byte)(key >> 8), (byte)key) { }
 
     public override string ToString() {
         return DrawObject switch {

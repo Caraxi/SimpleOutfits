@@ -20,22 +20,22 @@ using SimpleOutfitsPlugin.Sheets;
 namespace SimpleOutfitsPlugin;
 
 public class ConfigWindow(IClientState clientState, ITextureProvider textureProvider, IDataManager dataManager, ItemManager itemManager, OutfitManager outfitManager, CommunicatorService communicatorService, ModManager modManager) : SimpleWindow($"{nameof(SimpleOutfitsPlugin)}#{nameof(ConfigWindow)}", "Simple Outfits") {
-    private IOutfit? selectedOutfit;
+    private IOutfit? _selectedOutfit;
 
-    public override void Draw() {
+    public override void DrawContents() {
         if (clientState.LocalPlayer == null) return;
 
         if (ImGui.BeginChild("outfitSelector", new Vector2(200, ImGui.GetContentRegionAvail().Y), true)) {
-            ImGui.TreeNodeEx($"Active Outfit", ImGuiTreeNodeFlags.SpanFullWidth | ImGuiTreeNodeFlags.Leaf | ImGuiTreeNodeFlags.Bullet | ImGuiTreeNodeFlags.NoTreePushOnOpen | (selectedOutfit is ActiveOutfit ? ImGuiTreeNodeFlags.Selected : ImGuiTreeNodeFlags.None));
+            ImGui.TreeNodeEx($"Active Outfit", ImGuiTreeNodeFlags.SpanFullWidth | ImGuiTreeNodeFlags.Leaf | ImGuiTreeNodeFlags.Bullet | ImGuiTreeNodeFlags.NoTreePushOnOpen | (_selectedOutfit is ActiveOutfit ? ImGuiTreeNodeFlags.Selected : ImGuiTreeNodeFlags.None));
             if (ImGui.IsItemClicked())
                 if (outfitManager.TryGetOutfitForLocalCharacter(out var o))
-                    selectedOutfit = o;
+                    _selectedOutfit = o;
 
             ImGui.Separator();
 
             foreach (var (outfitIdentifier, outfit) in outfitManager.GetSavedOutfits().DrawFolderTree()) {
-                ImGui.TreeNodeEx($"{outfit.Name}###savedOutfit_{outfitIdentifier}", ImGuiTreeNodeFlags.SpanFullWidth | ImGuiTreeNodeFlags.Leaf | ImGuiTreeNodeFlags.Bullet | ImGuiTreeNodeFlags.NoTreePushOnOpen | (outfit.Equals(selectedOutfit) ? ImGuiTreeNodeFlags.Selected : ImGuiTreeNodeFlags.None));
-                if (ImGui.IsItemClicked()) selectedOutfit = outfit;
+                ImGui.TreeNodeEx($"{outfit.Name}###savedOutfit_{outfitIdentifier}", ImGuiTreeNodeFlags.SpanFullWidth | ImGuiTreeNodeFlags.Leaf | ImGuiTreeNodeFlags.Bullet | ImGuiTreeNodeFlags.NoTreePushOnOpen | (outfit.Equals(_selectedOutfit) ? ImGuiTreeNodeFlags.Selected : ImGuiTreeNodeFlags.None));
+                if (ImGui.IsItemClicked()) _selectedOutfit = outfit;
 
                 /*
                 if (ImGui.Selectable(, outfit.Equals(selectedOutfit))) {
@@ -47,13 +47,13 @@ public class ConfigWindow(IClientState clientState, ITextureProvider textureProv
 
         ImGui.EndChild();
         ImGui.SameLine();
-        if (ImGui.BeginChild("outfitViewer", ImGui.GetContentRegionAvail(), true)) DrawOutfitView(selectedOutfit);
+        if (ImGui.BeginChild("outfitViewer", ImGui.GetContentRegionAvail(), true)) DrawOutfitView(_selectedOutfit);
 
         ImGui.EndChild();
     }
 
-    private string popupSaveOutfitInputText = string.Empty;
-    private string? popupSavedOutfitError = null;
+    private string _popupSaveOutfitInputText = string.Empty;
+    private string? _popupSavedOutfitError = null;
 
     public void DrawOutfitView(IOutfit? outfitInterface) {
         var outfit = outfitInterface?.AsOutfit();
@@ -62,19 +62,19 @@ public class ConfigWindow(IClientState clientState, ITextureProvider textureProv
         if (outfit is ActiveOutfit) {
             if (ImGui.Button("Save Outfit")) {
                 ImGui.OpenPopup("popupSaveOutfit");
-                popupSaveOutfitInputText = string.Empty;
+                _popupSaveOutfitInputText = string.Empty;
             }
 
             if (ImGui.BeginPopup("popupSaveOutfit")) {
                 if (ImGui.IsWindowAppearing()) ImGui.SetKeyboardFocusHere();
 
-                if (ImGui.InputTextWithHint("##outfitName", "Outfit Name", ref popupSaveOutfitInputText, 128, ImGuiInputTextFlags.EnterReturnsTrue))
-                    if (outfitManager.TrySaveOutfit(outfit, popupSaveOutfitInputText, out popupSavedOutfitError, out var savedOutfit)) {
-                        selectedOutfit = savedOutfit;
+                if (ImGui.InputTextWithHint("##outfitName", "Outfit Name", ref _popupSaveOutfitInputText, 128, ImGuiInputTextFlags.EnterReturnsTrue))
+                    if (outfitManager.TrySaveOutfit(outfit, _popupSaveOutfitInputText, out _popupSavedOutfitError, out var savedOutfit)) {
+                        _selectedOutfit = savedOutfit;
                         ImGui.CloseCurrentPopup();
                     }
 
-                if (!string.IsNullOrEmpty(popupSavedOutfitError)) ImGui.TextColored(ImGuiColors.DalamudRed, popupSavedOutfitError);
+                if (!string.IsNullOrEmpty(_popupSavedOutfitError)) ImGui.TextColored(ImGuiColors.DalamudRed, _popupSavedOutfitError);
 
                 ImGui.EndPopup();
             }
